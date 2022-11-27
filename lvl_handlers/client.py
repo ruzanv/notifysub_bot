@@ -5,6 +5,7 @@ from keyboards import kb_client
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
+from keyboards.one_board import onekeyboard
 
 list_subs = []
 
@@ -36,40 +37,25 @@ class FSMClient(StatesGroup):
 
 
 async def add_subscribe(message: types.Message):
-    kb = [[types.KeyboardButton(text="Отмена ввода")]]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Введите название сервиса"
-    )
     await FSMClient.sub_name.set()
-    await message.answer('Введите название вашей подписки', reply_markup=keyboard)
+    await message.answer('Введите название вашей подписки',
+                         reply_markup=onekeyboard('Отмена ввода', 'Введите название сервиса'))
 
 
 async def add_name(message: types.Message, state: FSMContext):
-    kb = [[types.KeyboardButton(text="Отмена ввода")]]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Введите дату оформления"
-    )
     async with state.proxy() as data:
         data['name'] = message.text
     await FSMClient.next()
-    await message.reply('Введите дату оформления подписки в формате ДД.ММ', reply_markup=keyboard)
+    await message.reply('Введите дату оформления подписки в формате ДД.ММ',
+                        reply_markup=onekeyboard('Отмена ввода', 'Введите дату оформления'))
 
 
 async def add_date(message: types.Message, state: FSMContext):
-    kb = [[types.KeyboardButton(text="Отмена ввода")]]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb,
-        resize_keyboard=True,
-        input_field_placeholder="Введите переодичность подписки"
-    )
     async with state.proxy() as data:
         data['date'] = message.text
     await FSMClient.next()
-    await message.reply('С какой периодичностью была оформлена подписка? Введите значение в днях', reply_markup=keyboard)
+    await message.reply('С какой периодичностью была оформлена подписка? Введите значение в днях',
+                        reply_markup=onekeyboard('Отмена ввода', 'Введите переодичность подписки'))
 
 
 async def add_select(message: types.Message, state: FSMContext):
@@ -88,11 +74,11 @@ async def cancel_add(message: types.Message, state: FSMContext):
         await state.finish()
     await message.reply('Добавление в список было отменено.', reply_markup=kb_client)
 
+
 async def donate(message: types.Message):
     await message.answer('Если вы хотите поддержать проект и помочь в его развитии, '
                          'вы можете это сделать по текущему номеру карты:')
     await message.answer('5536 9139 6627 5485')
-
 
 
 def register_handlers_client(dp: Dispatcher):
