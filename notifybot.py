@@ -1,6 +1,7 @@
 from time import asctime
 from aiogram import executor
 from create_bot import dp
+from data_base import sqlite_db
 
 
 async def on_startup(_):

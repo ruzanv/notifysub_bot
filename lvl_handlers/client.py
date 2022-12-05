@@ -1,22 +1,25 @@
 import logging
 import time
 from aiogram import types, Dispatcher
+
+from data_base.sqlite_db import delete_value
 from keyboards import kb_client
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.dispatcher.filters import Text
 from keyboards.one_board import onekeyboard
+from data_base import sqlite_db
 
 list_subs = []
 
 
 async def start_handler(message: types.Message):
     user_id = message.from_user.id
+    await sqlite_db.sql_start(message.from_user.id)
     user_full_name = message.from_user.full_name
     logging.info(f'{user_id=} {user_full_name=}, {time.asctime()}')
     await message.answer(f'Привет, {user_full_name}! Ты запустил бота помощника по управлению твоими подписками!',
                          reply_markup=kb_client)
-
 
 async def about_handler(message: types.Message):
     user_first_name = message.from_user.first_name
@@ -33,10 +36,11 @@ async def about_handler(message: types.Message):
 class FSMClient(StatesGroup):
     sub_name = State()
     sub_date = State()
-    sub_select = State()
+    sub_selct = State()
 
 
 async def add_subscribe(message: types.Message):
+    await sqlite_db.sql_start(message.from_user.id)
     await FSMClient.sub_name.set()
     await message.answer('Введите название вашей подписки',
                          reply_markup=onekeyboard('Отмена ввода', 'Введите название сервиса'))
@@ -60,9 +64,9 @@ async def add_date(message: types.Message, state: FSMContext):
 
 async def add_select(message: types.Message, state: FSMContext):
     async with state.proxy() as data:
-        data['select'] = ((int(message.text)) * 60 * 60 * 24)
-    async with state.proxy() as data:
-        await message.reply(f'Подписка была добавлена в список {str(data)}', reply_markup=kb_client)
+        data['selct'] = ((int(message.text)) * 60 * 60 * 24)
+    await sqlite_db.sql_add_cmnd(state, message.from_user.id)
+    await message.reply(f'Подписка была добавлена в список.', reply_markup=kb_client)
     await state.finish()
 
 
@@ -73,6 +77,25 @@ async def cancel_add(message: types.Message, state: FSMContext):
     else:
         await state.finish()
     await message.reply('Добавление в список было отменено.', reply_markup=kb_client)
+
+async def view_list(message: types.Message):
+    await sqlite_db.sql_start(message.from_user.id)
+    await sqlite_db.view_list_sql(message, message.from_user.id)
+
+
+class DeleteSub(StatesGroup):
+    sub_delete = State()
+
+async def delete_sub(message: types.Message):
+    await sqlite_db.sql_start(message.from_user.id)
+    await DeleteSub.sub_delete.set()
+    await message.answer('Введите номер подписки из списка для удаления',
+                         reply_markup=onekeyboard('Отмена ввода', 'Введите номер подписки'))
+
+async def del_sub2(message: types.Message, state: FSMContext):
+    await delete_value(message)
+    await message.answer('Подписка была удалена из списка.', reply_markup=kb_client)
+    await state.finish()
 
 
 async def donate(message: types.Message):
@@ -90,5 +113,9 @@ def register_handlers_client(dp: Dispatcher):
     dp.register_message_handler(cancel_add, Text(equals='Отмена ввода'), state='*')
     dp.register_message_handler(add_date, state=FSMClient.sub_date)
     dp.register_message_handler(cancel_add, Text(equals='Отмена ввода'), state='*')
-    dp.register_message_handler(add_select, state=FSMClient.sub_select)
+    dp.register_message_handler(add_select, state=FSMClient.sub_selct)
     dp.register_message_handler(donate, Text(equals='Поддержка проекта'))
+    dp.register_message_handler(view_list, Text(equals='Посмотреть список подписок'))
+    dp.register_message_handler(delete_sub, Text(equals='Удалить подписку из списка'), state=None)
+    dp.register_message_handler(cancel_add, Text(equals='Отмена ввода'), state='*')
+    dp.register_message_handler(del_sub2, state=DeleteSub.sub_delete)
